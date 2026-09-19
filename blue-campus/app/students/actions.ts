@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cascadeDeleteStudent } from "@/lib/cascade";
+import { getCurrentProfile, effectiveSchoolId, requireRole } from "@/lib/auth/current-profile";
 
 export async function createStudent(formData: FormData) {
+  const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
   const supabase = await createClient();
   const student = {
     first_name: formData.get("first_name") as string,
@@ -16,6 +18,7 @@ export async function createStudent(formData: FormData) {
     postal_code: formData.get("postal_code") as string,
     city: formData.get("city") as string,
     adress: formData.get("adress") as string,
+    school_id: effectiveSchoolId(profile, formData.get("school_id") as string | null),
   };
 
   const { error } = await supabase
@@ -29,10 +32,10 @@ export async function createStudent(formData: FormData) {
 }
 
 export async function updateStudent(formData: FormData) {
+  const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
   const supabase = await createClient();
 
   const id = Number(formData.get("id"))
-  console.log(id)
 
   const student = {
     first_name: formData.get("first_name") as string,
@@ -43,15 +46,14 @@ export async function updateStudent(formData: FormData) {
     postal_code: formData.get("postal_code") as string,
     city: formData.get("city") as string,
     adress: formData.get("adress") as string,
+    school_id: effectiveSchoolId(profile, formData.get("school_id") as string | null),
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("students")
     .update(student)
     .eq("id", id)
     .select()
-
-  console.log("Updated:", data)
 
   if (error) {
     console.error(error)
@@ -63,6 +65,7 @@ export async function updateStudent(formData: FormData) {
 }
 
 export async function deleteStudent(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
   const supabase = await createClient();
   const id = Number(formData.get("id"))
 
@@ -80,6 +83,7 @@ export async function deleteStudent(formData: FormData) {
 }
 
 export async function cascadeDeleteStudentAction(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
   const id = Number(formData.get("id"))
 
   await cascadeDeleteStudent(id)

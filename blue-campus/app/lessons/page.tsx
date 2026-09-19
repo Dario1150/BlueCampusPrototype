@@ -1,5 +1,6 @@
 import LessonsBoard from "./components/LessonsBoard";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 
 type SkillTrackingRow = {
   id: number
@@ -64,11 +65,17 @@ async function getOptions() {
 }
 
 export default async function LessonPage() {
-  const [lessons, options] = await Promise.all([getLessons(), getOptions()]);
+  const [lessons, options, profile] = await Promise.all([
+    getLessons(),
+    getOptions(),
+    getCurrentProfile(),
+  ]);
+  const canWrite =
+    profile?.role === "admin" || profile?.role === "school" || profile?.role === "instructor";
 
   return (
     <div className="container mx-auto py-10">
-      <LessonsBoard lessons={lessons} options={options} />
+      <LessonsBoard lessons={lessons} options={options} canWrite={canWrite} />
     </div>
   );
 }

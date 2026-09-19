@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation"
 import NewLessonTabs from "../components/NewLessonTabs"
 import { createClient } from "@/lib/supabase/server"
+import { getCurrentProfile } from "@/lib/auth/current-profile"
 
 async function getOptions() {
     const supabase = await createClient();
@@ -23,6 +25,11 @@ async function getOptions() {
 }
 
 export default async function NewLessonPage() {
+    const profile = await getCurrentProfile();
+    const canWrite =
+        profile?.role === "admin" || profile?.role === "school" || profile?.role === "instructor";
+    if (!canWrite) redirect("/lessons");
+
     const options = await getOptions()
 
     return <NewLessonTabs options={options} />

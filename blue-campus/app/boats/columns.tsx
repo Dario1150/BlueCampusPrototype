@@ -6,6 +6,8 @@ import { ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { deleteBoat, cascadeDeleteBoatAction } from "./actions"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
+import type { Role } from "@/lib/auth/current-profile"
+import { DataTable } from "./data-table"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -31,7 +33,10 @@ export type Boat = {
     _relations?: Relation[]
   }
 
-export const columns: ColumnDef<Boat>[] = [
+export function getColumns(role: Role): ColumnDef<Boat>[] {
+  const canWrite = role === "admin" || role === "school"
+
+  return [
     {
     id: "select",
     header: ({ table }) => (
@@ -80,11 +85,11 @@ export const columns: ColumnDef<Boat>[] = [
     accessorKey: "registration_number",
     header: "Registration Number"
   },
-  {
+  ...(canWrite ? [{
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row }: { row: { original: Boat } }) => {
       const boat = row.original
- 
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -114,5 +119,13 @@ export const columns: ColumnDef<Boat>[] = [
     },
     enableSorting: false,
     enableHiding: false,
-  },
-]
+  }] : []),
+  ]
+}
+
+// getColumns() can only run in a client context (it's exported from a "use
+// client" module) — this wrapper lets a Server Component page.tsx render
+// the table with a role-appropriate column set without calling it directly.
+export function BoatsTable({ role, data }: { role: Role; data: Boat[] }) {
+  return <DataTable columns={getColumns(role)} data={data} />
+}

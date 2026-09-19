@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { signOut } from "@/app/login/actions"
+import type { Role } from "@/lib/auth/current-profile"
 
 const NAV_ITEMS = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -35,8 +36,19 @@ const NAV_ITEMS = [
     { href: "/performance", label: "Performance", icon: TrendingUp },
 ]
 
+// Students get a single, heavily-restricted dashboard for now — no
+// self-service booking yet, so the rest of the app's management nav
+// doesn't apply to them.
+function getNavItems(role: Role | null) {
+    if (role === "student") {
+        return NAV_ITEMS.filter((item) => item.href === "/")
+    }
+    return NAV_ITEMS.filter((item) => item.href !== "/schools" || role === "admin")
+}
+
 type Props = {
     userEmail: string | null
+    role: Role | null
 }
 
 function BrandMark() {
@@ -50,10 +62,18 @@ function BrandMark() {
     )
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+    pathname,
+    navItems,
+    onNavigate,
+}: {
+    pathname: string
+    navItems: typeof NAV_ITEMS
+    onNavigate?: () => void
+}) {
     return (
         <nav className="flex flex-1 flex-col gap-0.5 px-2 py-3">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, label, icon: Icon }) => {
                 const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href)
 
                 return (
@@ -98,9 +118,10 @@ function SignOutBlock({ userEmail }: { userEmail: string | null }) {
     )
 }
 
-export default function NavSidebar({ userEmail }: Props) {
+export default function NavSidebar({ userEmail, role }: Props) {
     const pathname = usePathname()
     const [open, setOpen] = useState(false)
+    const navItems = getNavItems(role)
 
     if (pathname === "/login") return null
 
@@ -133,7 +154,7 @@ export default function NavSidebar({ userEmail }: Props) {
                     <SheetTitle className="sr-only">Navigation</SheetTitle>
                     <div className="flex h-full flex-col">
                         <BrandMark />
-                        <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+                        <NavLinks pathname={pathname} navItems={navItems} onNavigate={() => setOpen(false)} />
                         <SignOutBlock userEmail={userEmail} />
                     </div>
                 </SheetContent>
@@ -142,7 +163,7 @@ export default function NavSidebar({ userEmail }: Props) {
             {/* Desktop sidebar */}
             <aside className="hidden h-full w-56 flex-none flex-col bg-sidebar text-sidebar-foreground md:flex">
                 <BrandMark />
-                <NavLinks pathname={pathname} />
+                <NavLinks pathname={pathname} navItems={navItems} />
                 <SignOutBlock userEmail={userEmail} />
             </aside>
         </>

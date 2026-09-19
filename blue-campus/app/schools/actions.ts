@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cascadeDeleteSchool } from "@/lib/cascade";
+import { getCurrentProfile, requireRole } from "@/lib/auth/current-profile";
 
 export async function addSchool(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin"]);
   const supabase = await createClient();
   const school = {
     name: formData.get("name") as string,
@@ -27,6 +29,7 @@ export async function addSchool(formData: FormData) {
 }
 
 export async function editSchool(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin"]);
   const supabase = await createClient();
 
   const id = Number(formData.get("id"))
@@ -56,6 +59,7 @@ export async function editSchool(formData: FormData) {
 }
 
 export async function deleteSchool(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin"]);
     const supabase = await createClient();
 
     const id = Number(formData.get("id"))
@@ -74,6 +78,7 @@ export async function deleteSchool(formData: FormData) {
 }
 
 export async function cascadeDeleteSchoolAction(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin"]);
     const id = Number(formData.get("id"))
 
     await cascadeDeleteSchool(id)

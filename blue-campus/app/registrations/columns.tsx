@@ -7,6 +7,8 @@ import Link from "next/link"
 import { deleteRegistration, cascadeDeleteRegistrationAction } from "./actions"
 import { formatDate } from "@/lib/utils"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
+import type { Role } from "@/lib/auth/current-profile"
+import { DataTable } from "./data-table"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -34,7 +36,14 @@ export type Registration = {
   _relations?: Relation[]
 }
 
-export const columns: ColumnDef<Registration>[] = [
+export function getColumns(role: Role): ColumnDef<Registration>[] {
+  // Instructors can view a registration's tracked skills (and update them
+  // there) but cannot edit or delete the registration itself — that stays
+  // admin/school only, matching the RLS write policy on `registrations`.
+  const canEdit = role === "admin" || role === "school"
+  const canView = canEdit || role === "instructor"
+
+  return [
   {
     id: "select",
     header: ({ table }) => (
@@ -87,9 +96,9 @@ export const columns: ColumnDef<Registration>[] = [
     accessorKey: "status",
     header: "Status",
   },
-  {
+  ...(canView ? [{
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row }: { row: { original: Registration } }) => {
       const registration = row.original
 
       return (
@@ -102,28 +111,37 @@ export const columns: ColumnDef<Registration>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href={`/registrations/${registration.id}/edit`}>
-                Edit
-              </Link>
-            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem asChild>
+                <Link href={`/registrations/${registration.id}/edit`}>
+                  Edit
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href={`/registrations/${registration.id}/skills`}>
                 View skills
               </Link>
             </DropdownMenuItem>
-            <DeleteGuardDialog
-              itemLabel={`this registration${registration.student ? ` for ${registration.student.first_name} ${registration.student.last_name}` : ""}`}
-              id={registration.id}
-              relations={registration._relations ?? []}
-              deleteAction={deleteRegistration}
-              cascadeAction={cascadeDeleteRegistrationAction}
-            />
+            {canEdit && (
+              <DeleteGuardDialog
+                itemLabel={`this registration${registration.student ? ` for ${registration.student.first_name} ${registration.student.last_name}` : ""}`}
+                id={registration.id}
+                relations={registration._relations ?? []}
+                deleteAction={deleteRegistration}
+                cascadeAction={cascadeDeleteRegistrationAction}
+              />
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )
     },
     enableSorting: false,
     enableHiding: false,
-  },
-]
+  }] : []),
+  ]
+}
+
+export function RegistrationsTable({ role, data }: { role: Role; data: Registration[] }) {
+  return <DataTable columns={getColumns(role)} data={data} />
+}

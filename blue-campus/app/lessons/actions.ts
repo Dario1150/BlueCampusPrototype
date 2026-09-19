@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { cascadeDeleteLesson } from "@/lib/cascade";
+import { getCurrentProfile, effectiveSchoolId, requireRole } from "@/lib/auth/current-profile";
 
 type ConflictCheck = {
     date: string
@@ -103,6 +104,7 @@ async function findSchedulingConflict({
 }
 
 export async function createLessonsForDate(formData: FormData) {
+    const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const date = formData.get("lesson_date") as string;
     const templateGroupId = Number(formData.get("template_group_id"));
@@ -118,6 +120,19 @@ export async function createLessonsForDate(formData: FormData) {
         console.error(templateError);
         throw new Error("Could not load lesson template");
     }
+
+    const courseIds = [...new Set(templates.map((template) => template.course_id))];
+    const { data: courses, error: coursesError } = await supabase
+        .from("courses")
+        .select("id, school_id")
+        .in("id", courseIds);
+
+    if (coursesError) {
+        console.error(coursesError);
+        throw new Error(coursesError.message);
+    }
+
+    const courseSchoolIds = new Map(courses.map((course) => [course.id, course.school_id]));
 
     if (boatId) {
         for (const template of templates) {
@@ -136,7 +151,7 @@ export async function createLessonsForDate(formData: FormData) {
 
     // Create the actual (still unassigned) lessons for that day
     const lessons = templates.map((template) => ({
-        school_id: 2,
+        school_id: effectiveSchoolId(profile, courseSchoolIds.get(template.course_id) ?? null),
         date: date,
         course_id: template.course_id,
         start_time: template.start_time,
@@ -160,6 +175,7 @@ export async function createLessonsForDate(formData: FormData) {
 }
 
 export async function createSingleLesson(formData: FormData) {
+    const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const boatId = formData.get("boat_id") as string;
     const instructorId = formData.get("instructor_id") as string;
@@ -167,6 +183,18 @@ export async function createSingleLesson(formData: FormData) {
     const startTime = formData.get("start_time") as string;
     const endTime = formData.get("end_time") as string;
     const studentIds = formData.getAll("student_ids").map(Number);
+    const courseId = Number(formData.get("course_id"));
+
+    const { data: course, error: courseError } = await supabase
+        .from("courses")
+        .select("school_id")
+        .eq("id", courseId)
+        .single();
+
+    if (courseError) {
+        console.error(courseError);
+        throw new Error(courseError.message);
+    }
 
     const conflict = await findSchedulingConflict({
         date,
@@ -182,8 +210,8 @@ export async function createSingleLesson(formData: FormData) {
     }
 
     const lesson = {
-        school_id: 2,
-        course_id: Number(formData.get("course_id")),
+        school_id: effectiveSchoolId(profile, course?.school_id ?? null),
+        course_id: courseId,
         date,
         start_time: startTime,
         end_time: endTime,
@@ -221,6 +249,7 @@ export async function createSingleLesson(formData: FormData) {
 }
 
 export async function duplicateLesson(formData: FormData) {
+    const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const sourceLessonId = Number(formData.get("source_lesson_id"));
     const date = formData.get("date") as string;
@@ -231,7 +260,7 @@ export async function duplicateLesson(formData: FormData) {
         await Promise.all([
             supabase
                 .from("lessons")
-                .select("course_id, boat_id, instructor_id")
+                .select("course_id, boat_id, instructor_id, school_id")
                 .eq("id", sourceLessonId)
                 .single(),
             supabase
@@ -266,7 +295,7 @@ export async function duplicateLesson(formData: FormData) {
     const { data: newLesson, error } = await supabase
         .from("lessons")
         .insert({
-            school_id: 2,
+            school_id: effectiveSchoolId(profile, sourceLesson.school_id),
             course_id: sourceLesson.course_id,
             boat_id: sourceLesson.boat_id,
             instructor_id: sourceLesson.instructor_id,
@@ -301,6 +330,7 @@ export async function duplicateLesson(formData: FormData) {
 }
 
 export async function updateLesson(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const id = Number(formData.get("id"));
 
@@ -367,12 +397,13 @@ function timeToMinutes(time: string): number {
 }
 
 export async function finishLesson(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const id = Number(formData.get("id"));
 
     const { data: lesson, error: lessonError } = await supabase
         .from("lessons")
-        .select("date, start_time, end_time, instructor_id")
+        .select("date, start_time, end_time, instructor_id, school_id")
         .eq("id", id)
         .single();
 
@@ -411,7 +442,7 @@ export async function finishLesson(formData: FormData) {
 
             if (amount > 0) {
                 const { error: salaryError } = await supabase.from("transactions").insert({
-                    school_id: 2,
+                    school_id: lesson.school_id,
                     instructor_id: lesson.instructor_id,
                     lesson_id: id,
                     date: lesson.date,
@@ -437,6 +468,7 @@ export async function finishLesson(formData: FormData) {
 }
 
 export async function deleteLesson(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const id = Number(formData.get("id"));
 
     await cascadeDeleteLesson(id);
@@ -446,6 +478,7 @@ export async function deleteLesson(formData: FormData) {
 }
 
 export async function addParticipant(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const lessonId = Number(formData.get("lesson_id"));
     const studentIdRaw = formData.get("student_id") as string;
@@ -496,6 +529,7 @@ export async function addParticipant(formData: FormData) {
 }
 
 export async function removeParticipant(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const id = Number(formData.get("id"));
 

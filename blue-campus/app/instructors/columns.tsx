@@ -6,6 +6,8 @@ import { ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { deleteInstructor, cascadeDeleteInstructorAction } from "./actions"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
+import type { Role } from "@/lib/auth/current-profile"
+import { DataTable } from "./data-table"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -29,7 +31,10 @@ export type Instructor = {
   _relations?: Relation[]
 }
 
-export const columns: ColumnDef<Instructor>[] = [
+export function getColumns(role: Role): ColumnDef<Instructor>[] {
+  const canWrite = role === "admin" || role === "school"
+
+  return [
     {
     id: "select",
     header: ({ table }) => (
@@ -96,7 +101,7 @@ export const columns: ColumnDef<Instructor>[] = [
     id: "actions",
     cell: ({ row }) => {
       const instructor = row.original
- 
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -108,23 +113,27 @@ export const columns: ColumnDef<Instructor>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem>Info</DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/instructors/${instructor.id}/edit`}>
-                Edit
-              </Link>
-            </DropdownMenuItem>
+            {canWrite && (
+              <DropdownMenuItem asChild>
+                <Link href={`/instructors/${instructor.id}/edit`}>
+                  Edit
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href={`/instructors/${instructor.id}/salary`}>
                 Salary
               </Link>
             </DropdownMenuItem>
-            <DeleteGuardDialog
-              itemLabel={`${instructor.first_name} ${instructor.last_name}`}
-              id={instructor.id}
-              relations={instructor._relations ?? []}
-              deleteAction={deleteInstructor}
-              cascadeAction={cascadeDeleteInstructorAction}
-            />
+            {canWrite && (
+              <DeleteGuardDialog
+                itemLabel={`${instructor.first_name} ${instructor.last_name}`}
+                id={instructor.id}
+                relations={instructor._relations ?? []}
+                deleteAction={deleteInstructor}
+                cascadeAction={cascadeDeleteInstructorAction}
+              />
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )
@@ -132,4 +141,9 @@ export const columns: ColumnDef<Instructor>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-]
+  ]
+}
+
+export function InstructorsTable({ role, data }: { role: Role; data: Instructor[] }) {
+  return <DataTable columns={getColumns(role)} data={data} />
+}

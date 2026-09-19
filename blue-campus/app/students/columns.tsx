@@ -6,6 +6,8 @@ import { ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { deleteStudent, cascadeDeleteStudentAction } from "./actions"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
+import type { Role } from "@/lib/auth/current-profile"
+import { DataTable } from "./data-table"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -28,7 +30,10 @@ export type Student = {
   _relations?: Relation[]
 }
 
-export const columns: ColumnDef<Student>[] = [
+export function getColumns(role: Role): ColumnDef<Student>[] {
+  const canWrite = role === "admin" || role === "school" || role === "instructor"
+
+  return [
     {
     id: "select",
     header: ({ table }) => (
@@ -87,11 +92,11 @@ export const columns: ColumnDef<Student>[] = [
     accessorKey: "email",
     header: "EMail"
   },
-  {
+  ...(canWrite ? [{
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row }: { row: { original: Student } }) => {
       const student = row.original
- 
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -121,5 +126,10 @@ export const columns: ColumnDef<Student>[] = [
     },
     enableSorting: false,
     enableHiding: false,
-  },
-]
+  }] : []),
+  ]
+}
+
+export function StudentsTable({ role, data }: { role: Role; data: Student[] }) {
+  return <DataTable columns={getColumns(role)} data={data} />
+}

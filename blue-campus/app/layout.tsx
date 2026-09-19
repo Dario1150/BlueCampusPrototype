@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import NavSidebar from "@/components/nav-sidebar";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import "./globals.css";
 
 const bodyFont = Plus_Jakarta_Sans({
@@ -28,6 +29,7 @@ export default async function RootLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const profile = await getCurrentProfile();
 
   return (
     <html
@@ -35,7 +37,7 @@ export default async function RootLayout({
       className={`${bodyFont.variable} ${headingFont.variable} h-full antialiased`}
     >
       <body className="flex h-full flex-col md:flex-row">
-        <NavSidebar userEmail={user?.email ?? null} />
+        <NavSidebar userEmail={user?.email ?? null} role={profile?.role ?? null} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}
         </main>

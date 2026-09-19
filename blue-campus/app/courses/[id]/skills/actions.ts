@@ -3,8 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { cascadeDeleteSkill } from "@/lib/cascade";
+import { getCurrentProfile, requireRole } from "@/lib/auth/current-profile";
 
 export async function createSkill(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school"]);
     const supabase = await createClient();
     const courseId = Number(formData.get("course_id"));
     const courseName = formData.get("course_name") as string;
@@ -42,6 +44,7 @@ export async function createSkill(formData: FormData) {
 }
 
 export async function updateSkill(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school"]);
     const supabase = await createClient();
     const id = Number(formData.get("id"));
     const courseId = Number(formData.get("course_id"));
@@ -65,6 +68,7 @@ export async function updateSkill(formData: FormData) {
 }
 
 export async function deleteSkill(formData: FormData) {
+    requireRole(await getCurrentProfile(), ["admin", "school"]);
     const supabase = await createClient();
     const id = Number(formData.get("id"));
 

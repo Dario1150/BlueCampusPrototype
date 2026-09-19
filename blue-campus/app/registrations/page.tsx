@@ -2,10 +2,10 @@ import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countRelated } from "@/lib/cascade";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/page-header";
-import { columns } from "./columns"
-import { DataTable } from "./data-table"
+import { RegistrationsTable } from "./columns"
 
 async function getData(){
   const supabase = await createClient();
@@ -37,16 +37,20 @@ async function getData(){
 }
 
 export default async function RegistrationPage() {
+  const profile = await getCurrentProfile();
+  const canWrite = profile?.role === "admin" || profile?.role === "school";
   const data = await getData()
 
   return (
     <div className="container mx-auto py-10">
       <PageHeader icon={ClipboardList} title="Registrations">
-        <Button asChild>
-          <Link href="/registrations/new-registration">New registration</Link>
-        </Button>
+        {canWrite && (
+          <Button asChild>
+            <Link href="/registrations/new-registration">New registration</Link>
+          </Button>
+        )}
       </PageHeader>
-      <DataTable columns={columns} data={data} />
+      <RegistrationsTable role={profile?.role ?? "student"} data={data} />
     </div>
   )
 }

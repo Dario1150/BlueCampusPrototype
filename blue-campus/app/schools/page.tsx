@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countRelated } from "@/lib/cascade";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/page-header";
 import { columns } from "./columns"
@@ -47,6 +49,9 @@ async function getData(){
 }
 
 export default async function SchoolPage() {
+  const profile = await getCurrentProfile();
+  if (profile?.role !== "admin") redirect("/");
+
   const data = await getData()
 
   return (

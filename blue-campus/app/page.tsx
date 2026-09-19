@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import PageHeader from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,144 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type StudentLesson = {
+  id: number;
+  date: string;
+  start_time: string;
+  status: string | null;
+  course: { name: string } | null;
+  boat: { name: string } | null;
+};
+
+type StudentRegistration = {
+  id: number;
+  registration_date: string;
+  status: string;
+  course: { name: string } | null;
+};
+
+type StudentTransaction = {
+  id: number;
+  date: string;
+  amount: number;
+  category: string;
+  status: string | null;
+};
+
+async function getStudentDashboardData() {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [{ data: upcomingLessons }, { data: registrations }, { data: transactions }] =
+    await Promise.all([
+      supabase
+        .from("lessons")
+        .select("id, date, start_time, status, course:courses(name), boat:boats(name)")
+        .gte("date", today)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .returns<StudentLesson[]>(),
+      supabase
+        .from("registrations")
+        .select("id, registration_date, status, course:courses(name)")
+        .order("registration_date", { ascending: false })
+        .returns<StudentRegistration[]>(),
+      supabase
+        .from("transactions")
+        .select("id, date, amount, category, status")
+        .order("date", { ascending: false })
+        .returns<StudentTransaction[]>(),
+    ]);
+
+  return {
+    upcomingLessons: upcomingLessons ?? [],
+    registrations: registrations ?? [],
+    transactions: transactions ?? [],
+  };
+}
+
+function StudentDashboard({
+  upcomingLessons,
+  registrations,
+  transactions,
+}: Awaited<ReturnType<typeof getStudentDashboardData>>) {
+  return (
+    <div className="container mx-auto py-10">
+      <PageHeader icon={Compass} title="My Dashboard" />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="font-heading pb-4 text-lg font-semibold">Upcoming Lessons</h2>
+          {upcomingLessons.length === 0 && (
+            <p className="text-sm text-muted-foreground">No upcoming lessons scheduled.</p>
+          )}
+          <div className="flex flex-col gap-3">
+            {upcomingLessons.map((lesson) => (
+              <div key={lesson.id} className="flex items-center justify-between gap-2 border-b pb-2 last:border-b-0">
+                <div>
+                  <div className="font-medium">{lesson.course?.name ?? "No course"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDate(lesson.date)} · {lesson.start_time?.slice(0, 5)}
+                    {lesson.boat ? ` · ${lesson.boat.name}` : ""}
+                  </div>
+                </div>
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                  {lesson.status ?? "Unscheduled"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="font-heading pb-4 text-lg font-semibold">My Registrations</h2>
+          {registrations.length === 0 && (
+            <p className="text-sm text-muted-foreground">No registrations yet.</p>
+          )}
+          <div className="flex flex-col gap-3">
+            {registrations.map((registration) => (
+              <div key={registration.id} className="flex items-center justify-between gap-2 border-b pb-2 last:border-b-0">
+                <div>
+                  <div className="font-medium">{registration.course?.name ?? "Unknown course"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    Registered {formatDate(registration.registration_date)}
+                  </div>
+                </div>
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                  {registration.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+          <h2 className="font-heading pb-4 text-lg font-semibold">Payment History</h2>
+          {transactions.length === 0 && (
+            <p className="text-sm text-muted-foreground">No payments on record.</p>
+          )}
+          <div className="flex flex-col gap-3">
+            {transactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between gap-2 border-b pb-2 last:border-b-0">
+                <div>
+                  <div className="font-medium">{transaction.category}</div>
+                  <div className="text-sm text-muted-foreground">{formatDate(transaction.date)}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{Number(transaction.amount).toFixed(2)}</span>
+                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                    {transaction.status ?? "—"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type UpcomingLesson = {
   id: number;
@@ -87,6 +226,13 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function Home() {
+  const profile = await getCurrentProfile();
+
+  if (profile?.role === "student") {
+    const data = await getStudentDashboardData();
+    return <StudentDashboard {...data} />;
+  }
+
   const {
     activeStudents,
     boatsCount,

@@ -2,10 +2,23 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getCurrentProfile, effectiveSchoolId, requireRole } from "@/lib/auth/current-profile";
 
 export async function paySalary(formData: FormData) {
+    const profile = requireRole(await getCurrentProfile(), ["admin", "school", "instructor"]);
     const supabase = await createClient();
     const instructorId = Number(formData.get("instructor_id"));
+
+    const { data: instructor, error: instructorError } = await supabase
+        .from("instructors")
+        .select("school_id")
+        .eq("id", instructorId)
+        .single();
+
+    if (instructorError) {
+        console.error(instructorError);
+        throw new Error(instructorError.message);
+    }
 
     const { data: pending, error } = await supabase
         .from("transactions")
@@ -26,7 +39,7 @@ export async function paySalary(formData: FormData) {
     const total = pending.reduce((sum, t) => sum + Number(t.amount), 0);
 
     const { error: insertError } = await supabase.from("transactions").insert({
-        school_id: 2,
+        school_id: effectiveSchoolId(profile, instructor?.school_id ?? null),
         instructor_id: instructorId,
         date: new Date().toISOString().slice(0, 10),
         amount: Math.round(total * 100) / 100,

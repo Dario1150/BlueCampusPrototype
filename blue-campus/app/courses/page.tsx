@@ -2,10 +2,10 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countRelated } from "@/lib/cascade";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/page-header";
-import { columns } from "./columns"
-import { DataTable } from "./data-table"
+import { CoursesTable } from "./columns"
 
 async function getData(){
   const supabase = await createClient();
@@ -41,16 +41,20 @@ async function getData(){
 }
 
 export default async function CoursePage() {
+  const profile = await getCurrentProfile();
+  const canWrite = profile?.role === "admin" || profile?.role === "school";
   const data = await getData()
 
   return (
     <div className="container mx-auto py-10">
       <PageHeader icon={BookOpen} title="Courses">
-        <Button asChild>
-          <Link href="/courses/new-course">New course</Link>
-        </Button>
+        {canWrite && (
+          <Button asChild>
+            <Link href="/courses/new-course">New course</Link>
+          </Button>
+        )}
       </PageHeader>
-      <DataTable columns={columns} data={data} />
+      <CoursesTable role={profile?.role ?? "student"} data={data} />
     </div>
   )
 }

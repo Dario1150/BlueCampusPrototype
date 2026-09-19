@@ -12,6 +12,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import SchoolSelectField from "@/components/school-select-field"
 
 type Course = {
   id: string
@@ -24,9 +25,10 @@ type Course = {
 
 type Props = {
     course?: Course
+    schools?: { id: number; name: string }[]
 }
 
-export default function InputForm({ course }: Props) {
+export default function InputForm({ course, schools }: Props) {
   return (
     <div className="content-center justify-items-center">
         <form
@@ -34,20 +36,16 @@ export default function InputForm({ course }: Props) {
             className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm"
         >
             {course && (
-                <div>
-                    <input 
-                        type="hidden"
-                        name="id"
-                        value={course.id} 
-                    />
-                    <input 
-                        type="hidden"
-                        name="school_id"
-                        value="2"
-                    />
-                </div>
+                <input
+                    type="hidden"
+                    name="id"
+                    value={course.id}
+                />
             )}
             <FieldGroup>
+                {schools && (
+                    <SchoolSelectField schools={schools} defaultValue={course?.school_id} />
+                )}
                 <Field>
                     <FieldLabel htmlFor="form-name">Name</FieldLabel>
                     <Input

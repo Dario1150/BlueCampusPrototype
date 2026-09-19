@@ -7,6 +7,8 @@ import Link from "next/link"
 import { deleteTransaction } from "./actions"
 import { formatDate } from "@/lib/utils"
 import DeleteGuardDialog from "@/components/delete-guard-dialog"
+import type { Role } from "@/lib/auth/current-profile"
+import { DataTable } from "./data-table"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -30,7 +32,10 @@ export type Transaction = {
   boat: { id: string; name: string } | null
 }
 
-export const columns: ColumnDef<Transaction>[] = [
+export function getColumns(role: Role): ColumnDef<Transaction>[] {
+  const canWrite = role === "admin" || role === "school" || role === "instructor"
+
+  return [
   {
     id: "student_name",
     accessorFn: (row) =>
@@ -79,9 +84,9 @@ export const columns: ColumnDef<Transaction>[] = [
     accessorKey: "status",
     header: "Status",
   },
-  {
+  ...(canWrite ? [{
     id: "actions",
-    cell: ({ row }) => {
+    cell: ({ row }: { row: { original: Transaction } }) => {
       const transaction = row.original
 
       return (
@@ -111,5 +116,10 @@ export const columns: ColumnDef<Transaction>[] = [
     },
     enableSorting: false,
     enableHiding: false,
-  },
-]
+  }] : []),
+  ]
+}
+
+export function TransactionsTable({ role, data }: { role: Role; data: Transaction[] }) {
+  return <DataTable columns={getColumns(role)} data={data} />
+}

@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cascadeDeleteBoat } from "@/lib/cascade";
+import { getCurrentProfile, effectiveSchoolId, requireRole } from "@/lib/auth/current-profile";
 
 export async function newBoat(formData: FormData) {
+  const profile = requireRole(await getCurrentProfile(), ["admin", "school"]);
   const supabase = await createClient();
   const boat = {
     name: formData.get("name") as string,
@@ -13,7 +15,7 @@ export async function newBoat(formData: FormData) {
     capacity: formData.get("capacity") as string,
     registration_number: formData.get("registration_number") as string,
     notes: formData.get("notes") as string,
-    school_id: formData.get("school_id") as string,
+    school_id: effectiveSchoolId(profile, formData.get("school_id") as string | null),
   }
 
   const { error } = await supabase
@@ -27,6 +29,7 @@ export async function newBoat(formData: FormData) {
 }
 
 export async function editBoat(formData: FormData) {
+  const profile = requireRole(await getCurrentProfile(), ["admin", "school"]);
   const supabase = await createClient();
 
   const id = Number(formData.get("id"))
@@ -37,7 +40,7 @@ export async function editBoat(formData: FormData) {
     capacity: formData.get("capacity") as string,
     registration_number: formData.get("registration_number") as string,
     notes: formData.get("notes") as string,
-    school_id: formData.get("school_id") as string,
+    school_id: effectiveSchoolId(profile, formData.get("school_id") as string | null),
   }
 
   const { error } = await supabase
@@ -56,6 +59,7 @@ export async function editBoat(formData: FormData) {
 }
 
 export async function deleteBoat(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin", "school"]);
   const supabase = await createClient();
   const id = Number(formData.get("id"))
 
@@ -73,6 +77,7 @@ export async function deleteBoat(formData: FormData) {
 }
 
 export async function cascadeDeleteBoatAction(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin", "school"]);
   const id = Number(formData.get("id"))
 
   await cascadeDeleteBoat(id)

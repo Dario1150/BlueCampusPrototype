@@ -47,6 +47,7 @@ type Lesson = {
 
 type Props = {
     lesson: Lesson
+    canWrite: boolean
     onEdit: () => void
     onTrack: () => void
     onBookNext: () => void
@@ -59,7 +60,7 @@ const STATUS_STYLES: Record<string, string> = {
     Cancelled: "bg-gray-200 text-gray-600",
 }
 
-export default function LessonCard({ lesson, onEdit, onTrack, onBookNext }: Props) {
+export default function LessonCard({ lesson, canWrite, onEdit, onTrack, onBookNext }: Props) {
     const statusStyle = STATUS_STYLES[lesson.status ?? ""] ?? "bg-gray-200 text-gray-600"
     const isCompleted = lesson.status === "Completed"
     const isMobile = useIsMobile()
@@ -152,28 +153,30 @@ export default function LessonCard({ lesson, onEdit, onTrack, onBookNext }: Prop
                     </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-end gap-1 border-t pt-3">
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => runAction(onEdit)}>
-                        <Pencil className="size-4" />
-                        <span className="sr-only">Edit lesson</span>
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => runAction(onTrack)}
-                        className={!isCompleted ? "text-primary hover:text-primary" : "text-emerald-600 hover:text-emerald-600"}
-                    >
-                        {isCompleted ? <CircleCheck className="size-4" /> : <Flag className="size-4" />}
-                        <span className="sr-only">
-                            {isCompleted ? "Review lesson tracking" : "Finish lesson"}
-                        </span>
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => runAction(onBookNext)}>
-                        <CalendarPlus className="size-4" />
-                        <span className="sr-only">Book next lesson</span>
-                    </Button>
-                </div>
+                {canWrite && (
+                    <div className="mt-3 flex items-center justify-end gap-1 border-t pt-3">
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => runAction(onEdit)}>
+                            <Pencil className="size-4" />
+                            <span className="sr-only">Edit lesson</span>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => runAction(onTrack)}
+                            className={!isCompleted ? "text-primary hover:text-primary" : "text-emerald-600 hover:text-emerald-600"}
+                        >
+                            {isCompleted ? <CircleCheck className="size-4" /> : <Flag className="size-4" />}
+                            <span className="sr-only">
+                                {isCompleted ? "Review lesson tracking" : "Finish lesson"}
+                            </span>
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => runAction(onBookNext)}>
+                            <CalendarPlus className="size-4" />
+                            <span className="sr-only">Book next lesson</span>
+                        </Button>
+                    </div>
+                )}
             </>
         )
     }

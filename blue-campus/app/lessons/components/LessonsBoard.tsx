@@ -55,6 +55,7 @@ type Options = {
 type Props = {
     lessons: Lesson[]
     options: Options
+    canWrite: boolean
 }
 
 const COLUMN_WIDTH = 336 // card column width incl. gap
@@ -99,7 +100,7 @@ function weekdayLabel(date: string): string {
 
 type Action = { lessonId: number; type: "edit" | "track" | "book" }
 
-export default function LessonsBoard({ lessons, options }: Props) {
+export default function LessonsBoard({ lessons, options, canWrite }: Props) {
     const [action, setAction] = useState<Action | null>(null)
     const [courseFilter, setCourseFilter] = useState<string>("all")
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -192,12 +193,14 @@ export default function LessonsBoard({ lessons, options }: Props) {
                             </Button>
                         </>
                     )}
-                    <Button asChild size="icon">
-                        <Link href="/lessons/new-lesson">
-                            <Plus />
-                            <span className="sr-only">New lesson</span>
-                        </Link>
-                    </Button>
+                    {canWrite && (
+                        <Button asChild size="icon">
+                            <Link href="/lessons/new-lesson">
+                                <Plus />
+                                <span className="sr-only">New lesson</span>
+                            </Link>
+                        </Button>
+                    )}
                 </div>
             </PageHeader>
 
@@ -241,6 +244,7 @@ export default function LessonsBoard({ lessons, options }: Props) {
                                     <LessonCard
                                         key={lesson.id}
                                         lesson={lesson}
+                                        canWrite={canWrite}
                                         onEdit={() => setAction({ lessonId: lesson.id, type: "edit" })}
                                         onTrack={() => setAction({ lessonId: lesson.id, type: "track" })}
                                         onBookNext={() => setAction({ lessonId: lesson.id, type: "book" })}
