@@ -10,9 +10,9 @@ type SkillTrackingRow = {
   skill: { id: number; skill_name: string } | null
 }
 
-async function getLessons() {
+async function getLessons(activeSchoolId: number | null) {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("lessons")
     .select(
       `*,
@@ -24,6 +24,8 @@ async function getLessons() {
     )
     .order("date", { ascending: true })
     .order("start_time", { ascending: true });
+  if (activeSchoolId) query = query.eq("school_id", activeSchoolId);
+  const { data, error } = await query;
 
   if (error) {
     console.error(error);
@@ -33,8 +35,21 @@ async function getLessons() {
   return data;
 }
 
-async function getOptions() {
+async function getOptions(activeSchoolId: number | null) {
   const supabase = await createClient();
+  let instructorsQuery = supabase.from("instructors").select("id, first_name, last_name");
+  let boatsQuery = supabase.from("boats").select("id, name");
+  let coursesQuery = supabase.from("courses").select("id, name");
+  let studentsQuery = supabase.from("students").select("id, first_name, last_name");
+  let registrationsQuery = supabase.from("registrations").select("id, student_id, course_id");
+  if (activeSchoolId) {
+    instructorsQuery = instructorsQuery.eq("school_id", activeSchoolId);
+    boatsQuery = boatsQuery.eq("school_id", activeSchoolId);
+    coursesQuery = coursesQuery.eq("school_id", activeSchoolId);
+    studentsQuery = studentsQuery.eq("school_id", activeSchoolId);
+    registrationsQuery = registrationsQuery.eq("school_id", activeSchoolId);
+  }
+
   const [
     { data: instructors },
     { data: boats },
@@ -43,11 +58,11 @@ async function getOptions() {
     { data: registrations },
     { data: skillTracking },
   ] = await Promise.all([
-    supabase.from("instructors").select("id, first_name, last_name"),
-    supabase.from("boats").select("id, name"),
-    supabase.from("courses").select("id, name"),
-    supabase.from("students").select("id, first_name, last_name"),
-    supabase.from("registrations").select("id, student_id, course_id"),
+    instructorsQuery,
+    boatsQuery,
+    coursesQuery,
+    studentsQuery,
+    registrationsQuery,
     supabase
       .from("skill_tracking")
       .select("id, student_registration, status, description, skill:skills(id, skill_name)")
@@ -65,10 +80,11 @@ async function getOptions() {
 }
 
 export default async function LessonPage() {
-  const [lessons, options, profile] = await Promise.all([
-    getLessons(),
-    getOptions(),
-    getCurrentProfile(),
+  const profile = await getCurrentProfile();
+  const activeSchoolId = profile?.activeSchoolId ?? null;
+  const [lessons, options] = await Promise.all([
+    getLessons(activeSchoolId),
+    getOptions(activeSchoolId),
   ]);
   const canWrite =
     profile?.role === "admin" || profile?.role === "school" || profile?.role === "instructor";

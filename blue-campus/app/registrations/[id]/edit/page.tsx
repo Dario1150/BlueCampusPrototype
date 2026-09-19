@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import InputForm from "@/app/registrations/components/InputForm";
 import SkillTrackingList from "@/app/registrations/components/SkillTrackingList";
 
@@ -9,12 +10,16 @@ type SkillTrackingRow = {
     skill: { id: number; skill_name: string } | null
 }
 
-async function getOptions() {
+async function getOptions(activeSchoolId: number | null) {
     const supabase = await createClient();
-    const [{ data: students }, { data: courses }] = await Promise.all([
-        supabase.from("students").select("id, first_name, last_name"),
-        supabase.from("courses").select("id, name"),
-    ])
+    let studentsQuery = supabase.from("students").select("id, first_name, last_name");
+    let coursesQuery = supabase.from("courses").select("id, name");
+    if (activeSchoolId) {
+        studentsQuery = studentsQuery.eq("school_id", activeSchoolId);
+        coursesQuery = coursesQuery.eq("school_id", activeSchoolId);
+    }
+
+    const [{ data: students }, { data: courses }] = await Promise.all([studentsQuery, coursesQuery])
 
     return {
         students: students ?? [],
@@ -29,6 +34,7 @@ export default async function EditRegistrationPage({
 }) {
     const { id } = await params
     const supabase = await createClient();
+    const profile = await getCurrentProfile();
 
     const [{ data: registration }, { students, courses }, { data: skillTracking }] = await Promise.all([
         supabase
@@ -36,7 +42,7 @@ export default async function EditRegistrationPage({
             .select("*")
             .eq("id", id)
             .single(),
-        getOptions(),
+        getOptions(profile?.activeSchoolId ?? null),
         supabase
             .from("skill_tracking")
             .select("id, status, description, skill:skills(id, skill_name)")

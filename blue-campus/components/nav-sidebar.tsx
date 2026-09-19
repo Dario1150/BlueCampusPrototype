@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -16,11 +16,13 @@ import {
     TrendingUp,
     LogOut,
     Menu,
+    Eye,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { signOut } from "@/app/login/actions"
+import { setActiveSchool } from "@/app/schools/actions"
 import type { Role } from "@/lib/auth/current-profile"
 
 const NAV_ITEMS = [
@@ -49,6 +51,7 @@ function getNavItems(role: Role | null) {
 type Props = {
     userEmail: string | null
     role: Role | null
+    activeSchool: { id: number; name: string } | null
 }
 
 function BrandMark() {
@@ -97,6 +100,35 @@ function NavLinks({
     )
 }
 
+function ActiveSchoolBlock({ activeSchool }: { activeSchool: { id: number; name: string } | null }) {
+    const [isPending, startTransition] = useTransition()
+
+    if (!activeSchool) return null
+
+    function clearActiveSchool() {
+        startTransition(() => {
+            setActiveSchool(new FormData())
+        })
+    }
+
+    return (
+        <div className="flex flex-col gap-1.5 border-b border-sidebar-border bg-primary/10 px-4 py-3">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-sidebar-foreground">
+                <Eye className="size-3.5" />
+                Viewing: {activeSchool.name}
+            </div>
+            <button
+                type="button"
+                onClick={clearActiveSchool}
+                disabled={isPending}
+                className="text-left text-xs text-primary underline-offset-2 hover:underline"
+            >
+                View all schools
+            </button>
+        </div>
+    )
+}
+
 function SignOutBlock({ userEmail }: { userEmail: string | null }) {
     if (!userEmail) return null
 
@@ -118,7 +150,7 @@ function SignOutBlock({ userEmail }: { userEmail: string | null }) {
     )
 }
 
-export default function NavSidebar({ userEmail, role }: Props) {
+export default function NavSidebar({ userEmail, role, activeSchool }: Props) {
     const pathname = usePathname()
     const [open, setOpen] = useState(false)
     const navItems = getNavItems(role)
@@ -154,6 +186,7 @@ export default function NavSidebar({ userEmail, role }: Props) {
                     <SheetTitle className="sr-only">Navigation</SheetTitle>
                     <div className="flex h-full flex-col">
                         <BrandMark />
+                        <ActiveSchoolBlock activeSchool={activeSchool} />
                         <NavLinks pathname={pathname} navItems={navItems} onNavigate={() => setOpen(false)} />
                         <SignOutBlock userEmail={userEmail} />
                     </div>
@@ -163,6 +196,7 @@ export default function NavSidebar({ userEmail, role }: Props) {
             {/* Desktop sidebar */}
             <aside className="hidden h-full w-56 flex-none flex-col bg-sidebar text-sidebar-foreground md:flex">
                 <BrandMark />
+                <ActiveSchoolBlock activeSchool={activeSchool} />
                 <NavLinks pathname={pathname} navItems={navItems} />
                 <SignOutBlock userEmail={userEmail} />
             </aside>

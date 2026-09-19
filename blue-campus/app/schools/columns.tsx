@@ -1,9 +1,10 @@
 "use client"
 
+import { useTransition } from "react"
 import { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Eye, EyeOff } from "lucide-react"
 import { ArrowUpDown } from "lucide-react"
-import { deleteSchool, cascadeDeleteSchoolAction } from "./actions"
+import { deleteSchool, cascadeDeleteSchoolAction, setActiveSchool } from "./actions"
 import Link from "next/link"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
 
@@ -16,6 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { DataTable } from "./data-table"
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -31,7 +33,42 @@ export type School = {
   _relations?: Relation[]
 }
 
-export const columns: ColumnDef<School>[] = [
+function ActiveSchoolMenuItem({ schoolId, isActive }: { schoolId: string; isActive: boolean }) {
+  const [isPending, startTransition] = useTransition()
+
+  function toggle() {
+    const formData = new FormData()
+    if (!isActive) formData.set("school_id", schoolId)
+    startTransition(() => {
+      setActiveSchool(formData)
+    })
+  }
+
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        toggle()
+      }}
+      disabled={isPending}
+    >
+      {isActive ? (
+        <>
+          <EyeOff className="mr-2 h-4 w-4" />
+          Stop viewing this school
+        </>
+      ) : (
+        <>
+          <Eye className="mr-2 h-4 w-4" />
+          Display data for this school
+        </>
+      )}
+    </DropdownMenuItem>
+  )
+}
+
+export function getColumns(activeSchoolId: number | null): ColumnDef<School>[] {
+  return [
     {
     id: "select",
     header: ({ table }) => (
@@ -67,6 +104,20 @@ export const columns: ColumnDef<School>[] = [
             </Button>
         )
     },
+    cell: ({ row }) => {
+      const school = row.original
+      const isActive = activeSchoolId != null && Number(school.id) === activeSchoolId
+      return (
+        <div className="flex items-center gap-2">
+          {school.name}
+          {isActive && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Viewing
+            </span>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: "website",
@@ -84,7 +135,8 @@ export const columns: ColumnDef<School>[] = [
     id: "actions",
     cell: ({ row }) => {
       const school = row.original
- 
+      const isActive = activeSchoolId != null && Number(school.id) === activeSchoolId
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -95,6 +147,7 @@ export const columns: ColumnDef<School>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <ActiveSchoolMenuItem schoolId={school.id} isActive={isActive} />
             <DropdownMenuItem>Info</DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/schools/${school.id}/edit`}>
@@ -115,4 +168,9 @@ export const columns: ColumnDef<School>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-]
+  ]
+}
+
+export function SchoolsTable({ activeSchoolId, data }: { activeSchoolId: number | null; data: School[] }) {
+  return <DataTable columns={getColumns(activeSchoolId)} data={data} />
+}

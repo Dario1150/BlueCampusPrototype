@@ -3,8 +3,29 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { cascadeDeleteSchool } from "@/lib/cascade";
-import { getCurrentProfile, requireRole } from "@/lib/auth/current-profile";
+import { getCurrentProfile, requireRole, ACTIVE_SCHOOL_COOKIE } from "@/lib/auth/current-profile";
+
+/** Sets (or, with an empty school_id, clears) the admin's "view as school" selection. */
+export async function setActiveSchool(formData: FormData) {
+  requireRole(await getCurrentProfile(), ["admin"]);
+  const schoolId = formData.get("school_id") as string | null;
+  const cookieStore = await cookies();
+
+  if (schoolId) {
+    cookieStore.set(ACTIVE_SCHOOL_COOKIE, schoolId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  } else {
+    cookieStore.delete(ACTIVE_SCHOOL_COOKIE);
+  }
+
+  revalidatePath("/", "layout");
+}
 
 export async function addSchool(formData: FormData) {
   requireRole(await getCurrentProfile(), ["admin"]);

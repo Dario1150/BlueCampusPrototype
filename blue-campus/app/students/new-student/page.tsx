@@ -12,5 +12,5 @@ export default async function NewStudentPage() {
     const supabase = await createClient();
     const { data: schools } = await supabase.from("schools").select("id, name");
 
-    return <InputForm schools={schools ?? []} />
+    return <InputForm schools={schools ?? []} defaultSchoolId={profile.activeSchoolId ?? undefined} />
 }

@@ -33,9 +33,10 @@ type Student = {
 type Props = {
     student?: Student
     schools?: { id: number; name: string }[]
+    defaultSchoolId?: number
 }
 
-export default function InputForm({ student, schools }: Props) {
+export default function InputForm({ student, schools, defaultSchoolId }: Props) {
   return (
     <div className="content-center justify-items-center">
         <form
@@ -51,7 +52,7 @@ export default function InputForm({ student, schools }: Props) {
             )}
             <FieldGroup>
                 {schools && (
-                    <SchoolSelectField schools={schools} defaultValue={student?.school_id} />
+                    <SchoolSelectField schools={schools} defaultValue={student?.school_id ?? defaultSchoolId} />
                 )}
                 <div className="grid grid-cols-2 gap-4">
                     <Field>

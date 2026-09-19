@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/page-header";
 import { RegistrationsTable } from "./columns"
 
-async function getData(){
+async function getData(activeSchoolId: number | null){
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("registrations")
     .select("*, student:students(id, first_name, last_name), course:courses(id, name)")
     .order("registration_date", { ascending: false });
+  if (activeSchoolId) query = query.eq("school_id", activeSchoolId);
+  const { data, error } = await query;
 
   if (error) {
     console.error(error);
@@ -39,7 +41,7 @@ async function getData(){
 export default async function RegistrationPage() {
   const profile = await getCurrentProfile();
   const canWrite = profile?.role === "admin" || profile?.role === "school";
-  const data = await getData()
+  const data = await getData(profile?.activeSchoolId ?? null)
 
   return (
     <div className="container mx-auto py-10">

@@ -167,10 +167,34 @@ type UpcomingLesson = {
   boat: { name: string } | null;
 };
 
-async function getDashboardData() {
+async function getDashboardData(activeSchoolId: number | null) {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
   const monthPrefix = today.slice(0, 7);
+
+  let registrationsQuery = supabase.from("registrations").select("student_id").eq("status", "Active");
+  let boatsQuery = supabase.from("boats").select("id");
+  let instructorsQuery = supabase.from("instructors").select("id");
+  let openLessonsQuery = supabase.from("lessons").select("id").eq("status", "Open");
+  let transactionsQuery = supabase.from("transactions").select("amount, category, date");
+  let upcomingLessonsQuery = supabase
+    .from("lessons")
+    .select(
+      "id, date, start_time, status, course:courses(name), instructor:instructors(first_name, last_name), boat:boats(name)"
+    )
+    .gte("date", today)
+    .order("date", { ascending: true })
+    .order("start_time", { ascending: true })
+    .limit(5);
+
+  if (activeSchoolId) {
+    registrationsQuery = registrationsQuery.eq("school_id", activeSchoolId);
+    boatsQuery = boatsQuery.eq("school_id", activeSchoolId);
+    instructorsQuery = instructorsQuery.eq("school_id", activeSchoolId);
+    openLessonsQuery = openLessonsQuery.eq("school_id", activeSchoolId);
+    transactionsQuery = transactionsQuery.eq("school_id", activeSchoolId);
+    upcomingLessonsQuery = upcomingLessonsQuery.eq("school_id", activeSchoolId);
+  }
 
   const [
     { data: registrations },
@@ -180,21 +204,12 @@ async function getDashboardData() {
     { data: transactions },
     { data: upcomingLessons },
   ] = await Promise.all([
-    supabase.from("registrations").select("student_id").eq("status", "Active"),
-    supabase.from("boats").select("id"),
-    supabase.from("instructors").select("id"),
-    supabase.from("lessons").select("id").eq("status", "Open"),
-    supabase.from("transactions").select("amount, category, date"),
-    supabase
-      .from("lessons")
-      .select(
-        "id, date, start_time, status, course:courses(name), instructor:instructors(first_name, last_name), boat:boats(name)"
-      )
-      .gte("date", today)
-      .order("date", { ascending: true })
-      .order("start_time", { ascending: true })
-      .limit(5)
-      .returns<UpcomingLesson[]>(),
+    registrationsQuery,
+    boatsQuery,
+    instructorsQuery,
+    openLessonsQuery,
+    transactionsQuery,
+    upcomingLessonsQuery.returns<UpcomingLesson[]>(),
   ]);
 
   const activeStudents = new Set((registrations ?? []).map((r) => r.student_id)).size;
@@ -241,7 +256,7 @@ export default async function Home() {
     income,
     expenses,
     upcomingLessons,
-  } = await getDashboardData();
+  } = await getDashboardData(profile?.activeSchoolId ?? null);
 
   const stats = [
     { label: "Active Students", value: activeStudents, href: "/students", icon: GraduationCap },

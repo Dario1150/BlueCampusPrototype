@@ -6,8 +6,7 @@ import { countRelated } from "@/lib/cascade";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/page-header";
-import { columns } from "./columns"
-import { DataTable } from "./data-table"
+import { SchoolsTable } from "./columns"
 
 async function getData(){
   const supabase = await createClient();
@@ -61,7 +60,7 @@ export default async function SchoolPage() {
           <Link href="/schools/new-school">New school</Link>
         </Button>
       </PageHeader>
-      <DataTable columns={columns} data={data} />
+      <SchoolsTable activeSchoolId={profile.activeSchoolId} data={data} />
     </div>
   )
 }

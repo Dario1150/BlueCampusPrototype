@@ -31,13 +31,23 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
   const profile = await getCurrentProfile();
 
+  let activeSchool: { id: number; name: string } | null = null;
+  if (profile?.activeSchoolId) {
+    const { data: school } = await supabase
+      .from("schools")
+      .select("id, name")
+      .eq("id", profile.activeSchoolId)
+      .single();
+    activeSchool = school ?? null;
+  }
+
   return (
     <html
       lang="en"
       className={`${bodyFont.variable} ${headingFont.variable} h-full antialiased`}
     >
       <body className="flex h-full flex-col md:flex-row">
-        <NavSidebar userEmail={user?.email ?? null} role={profile?.role ?? null} />
+        <NavSidebar userEmail={user?.email ?? null} role={profile?.role ?? null} activeSchool={activeSchool} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}
         </main>

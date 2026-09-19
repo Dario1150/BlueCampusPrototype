@@ -1,7 +1,10 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export type Role = "admin" | "school" | "instructor" | "student";
+
+export const ACTIVE_SCHOOL_COOKIE = "active_school_id";
 
 export type CurrentProfile = {
   id: string;
@@ -9,6 +12,15 @@ export type CurrentProfile = {
   role: Role;
   school_id: number | null;
   student_id: number | null;
+  /**
+   * The school whose data should be shown right now: for school/instructor
+   * this is always their own school_id; for admin it's whichever school they
+   * picked via the Schools page "view as" action (or null = all schools).
+   * Reads should filter by this when it's set; it deliberately has no effect
+   * on writes (see effectiveSchoolId) so switching it can never silently
+   * reassign an existing record's school.
+   */
+  activeSchoolId: number | null;
 };
 
 /**
@@ -31,7 +43,14 @@ export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> 
 
   if (error || !data) return null;
 
-  return data as CurrentProfile;
+  let activeSchoolId: number | null = data.school_id;
+  if (data.role === "admin") {
+    const cookieStore = await cookies();
+    const raw = cookieStore.get(ACTIVE_SCHOOL_COOKIE)?.value;
+    activeSchoolId = raw ? Number(raw) : null;
+  }
+
+  return { ...data, activeSchoolId } as CurrentProfile;
 });
 
 /**

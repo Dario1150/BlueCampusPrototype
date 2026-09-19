@@ -26,9 +26,10 @@ type Course = {
 type Props = {
     course?: Course
     schools?: { id: number; name: string }[]
+    defaultSchoolId?: number
 }
 
-export default function InputForm({ course, schools }: Props) {
+export default function InputForm({ course, schools, defaultSchoolId }: Props) {
   return (
     <div className="content-center justify-items-center">
         <form
@@ -44,7 +45,7 @@ export default function InputForm({ course, schools }: Props) {
             )}
             <FieldGroup>
                 {schools && (
-                    <SchoolSelectField schools={schools} defaultValue={course?.school_id} />
+                    <SchoolSelectField schools={schools} defaultValue={course?.school_id ?? defaultSchoolId} />
                 )}
                 <Field>
                     <FieldLabel htmlFor="form-name">Name</FieldLabel>

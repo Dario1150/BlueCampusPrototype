@@ -39,7 +39,7 @@ update public.instructors set school_id = 2 where school_id is null;
 
 -- Promote your own account to admin (edit the email if needed).
 update public.profiles set role = 'admin', school_id = null
-  where email = 'dario98linder@gmail.com';
+  where email = 'dario.linder@msn.com';
 
 -- Everyone else who was a 'staff' account becomes 'school' at the one
 -- existing school, matching today's de-facto single-tenant behavior.
