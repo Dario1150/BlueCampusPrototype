@@ -6,6 +6,7 @@ import { ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { deleteStudent, cascadeDeleteStudentAction } from "./actions"
 import DeleteGuardDialog, { Relation } from "@/components/delete-guard-dialog"
+import AccountDialog from "./components/AccountDialog"
 import type { Role } from "@/lib/auth/current-profile"
 import { DataTable } from "./data-table"
 
@@ -27,11 +28,13 @@ export type Student = {
   last_name: string
   phone: string
   email: string
+  account?: { email: string } | null
   _relations?: Relation[]
 }
 
 export function getColumns(role: Role): ColumnDef<Student>[] {
   const canWrite = role === "admin" || role === "school" || role === "instructor"
+  const canManageAccounts = role === "admin" || role === "school"
 
   return [
     {
@@ -113,6 +116,14 @@ export function getColumns(role: Role): ColumnDef<Student>[] {
                 Edit
               </Link>
             </DropdownMenuItem>
+            {canManageAccounts && (
+              <AccountDialog
+                studentId={Number(student.id)}
+                studentName={`${student.first_name} ${student.last_name}`}
+                defaultEmail={student.email ?? ""}
+                account={student.account ?? null}
+              />
+            )}
             <DeleteGuardDialog
               itemLabel={`${student.first_name} ${student.last_name}`}
               id={student.id}
