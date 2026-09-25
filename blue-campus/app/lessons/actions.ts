@@ -121,6 +121,10 @@ export async function createLessonsForDate(formData: FormData) {
         throw new Error("Could not load lesson template");
     }
 
+    if (templates.length === 0) {
+        throw new Error("This template group has no lessons defined.");
+    }
+
     const courseIds = [...new Set(templates.map((template) => template.course_id))];
     const { data: courses, error: coursesError } = await supabase
         .from("courses")

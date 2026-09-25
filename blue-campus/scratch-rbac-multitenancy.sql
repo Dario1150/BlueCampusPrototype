@@ -218,6 +218,30 @@ create policy "scoped read" on public.skills for select to authenticated
 -- 8) Shape B: admin + school + instructor write; student read-only-own.
 --    lessons, lesson_participants, transactions, students.
 -- ============================================================
+-- lessons <-> lesson_participants: each table's policy needs to check the
+-- other (lessons.school_id for lesson_participants writes; lesson_participants
+-- membership for the student's lessons read policy). Checking the other
+-- table directly via a subquery makes Postgres detect this as a policy
+-- cycle ("infinite recursion detected in policy for relation ...") on any
+-- query that joins the two tables (e.g. selecting a lesson with its
+-- participants embedded). Routing both checks through security definer
+-- functions avoids re-triggering the referenced table's own RLS and breaks
+-- the cycle — the standard fix for this error.
+create or replace function public.lesson_school_id(p_lesson_id bigint)
+returns integer language sql stable security definer set search_path = ''
+as $$
+  select school_id from public.lessons where id = p_lesson_id;
+$$;
+
+create or replace function public.is_lesson_participant(p_lesson_id bigint, p_student_id integer)
+returns boolean language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.lesson_participants
+    where lesson_id = p_lesson_id and student_id = p_student_id
+  );
+$$;
+
 create policy "admin full access" on public.lessons for all to authenticated
   using (public.current_role() = 'admin') with check (public.current_role() = 'admin');
 create policy "school+instructor write own" on public.lessons for all to authenticated
@@ -226,10 +250,7 @@ create policy "school+instructor write own" on public.lessons for all to authent
 create policy "student read own" on public.lessons for select to authenticated
   using (
     public.current_role() = 'student'
-    and exists (
-      select 1 from public.lesson_participants lp
-      where lp.lesson_id = lessons.id and lp.student_id = public.current_student_id()
-    )
+    and public.is_lesson_participant(lessons.id, public.current_student_id())
   );
 
 create policy "admin full access" on public.lesson_participants for all to authenticated
@@ -237,11 +258,11 @@ create policy "admin full access" on public.lesson_participants for all to authe
 create policy "school+instructor write own" on public.lesson_participants for all to authenticated
   using (
     public.current_role() in ('school', 'instructor')
-    and exists (select 1 from public.lessons l where l.id = lesson_participants.lesson_id and l.school_id = public.current_school_id())
+    and public.lesson_school_id(lesson_participants.lesson_id) = public.current_school_id()
   )
   with check (
     public.current_role() in ('school', 'instructor')
-    and exists (select 1 from public.lessons l where l.id = lesson_participants.lesson_id and l.school_id = public.current_school_id())
+    and public.lesson_school_id(lesson_participants.lesson_id) = public.current_school_id()
   );
 create policy "student read own" on public.lesson_participants for select to authenticated
   using (public.current_role() = 'student' and student_id = public.current_student_id());
