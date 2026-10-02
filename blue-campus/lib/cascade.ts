@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { assertBoatNotUsedByOtherSchools } from "@/lib/boats";
 
 function ids<T extends Record<string, unknown>>(rows: T[] | null, key: keyof T): number[] {
   return (rows ?? []).map((row) => row[key] as number);
@@ -64,6 +65,7 @@ export async function cascadeDeleteInstructor(instructorId: number) {
 /** Deletes a boat along with the lessons it's assigned to. */
 export async function cascadeDeleteBoat(boatId: number) {
   const supabase = await createClient();
+  await assertBoatNotUsedByOtherSchools(supabase, boatId);
   const { data: lessons } = await supabase.from("lessons").select("id").eq("boat_id", boatId);
   for (const lessonId of ids(lessons, "id")) {
     await cascadeDeleteLesson(lessonId);

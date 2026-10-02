@@ -46,6 +46,46 @@ async function findSchedulingConflict({
 
     const supabase = await createClient();
 
+    // Normalize to "HH:MM" before comparing: form times arrive without seconds
+    // while stored times include them, and "10:30" < "10:30:00" is otherwise
+    // (incorrectly) true as a plain string comparison.
+    const newStart = startTime.slice(0, 5);
+    const newEnd = endTime.slice(0, 5);
+
+    // Boats can be shared between schools, and a school can't see another
+    // school's lessons — so ask the database, which reveals only the booked
+    // time slots and who holds them (never lesson details).
+    if (boatId) {
+        const { data: slots, error: slotsError } = await supabase.rpc("boat_booked_slots", {
+            p_boat_id: boatId,
+            p_date: date,
+            p_exclude_lesson_id: excludeLessonId ?? null,
+        });
+
+        // PGRST202 = function not installed yet; fall back to the own-school check below.
+        if (slotsError && slotsError.code !== "PGRST202") {
+            console.error(slotsError);
+            throw new Error(slotsError.message);
+        }
+
+        const otherSchoolClash = ((slots ?? []) as {
+            slot_start: string
+            slot_end: string
+            school_name: string | null
+            is_own: boolean
+        }[]).find(
+            (slot) =>
+                !slot.is_own &&
+                newStart < slot.slot_end.slice(0, 5) &&
+                slot.slot_start.slice(0, 5) < newEnd
+        );
+
+        if (otherSchoolClash) {
+            const range = `${otherSchoolClash.slot_start.slice(0, 5)}–${otherSchoolClash.slot_end.slice(0, 5)}`;
+            return `This boat is already booked ${range} by ${otherSchoolClash.school_name ?? "another school"}.`;
+        }
+    }
+
     let query = supabase
         .from("lessons")
         .select(
@@ -63,12 +103,6 @@ async function findSchedulingConflict({
         console.error(error);
         throw new Error(error.message);
     }
-
-    // Normalize to "HH:MM" before comparing: form times arrive without seconds
-    // while stored times include them, and "10:30" < "10:30:00" is otherwise
-    // (incorrectly) true as a plain string comparison.
-    const newStart = startTime.slice(0, 5);
-    const newEnd = endTime.slice(0, 5);
 
     const overlapping = (lessons ?? []).filter((lesson) => {
         const existingStart = lesson.start_time.slice(0, 5);

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getUsableBoatsFilter } from "@/lib/boats";
 import PerformanceBoard from "./PerformanceBoard";
 
 export default async function PerformancePage() {
@@ -22,8 +23,10 @@ export default async function PerformancePage() {
         lessonsQuery = lessonsQuery.eq("school_id", activeSchoolId);
         transactionsQuery = transactionsQuery.eq("school_id", activeSchoolId);
         instructorsQuery = instructorsQuery.eq("school_id", activeSchoolId);
-        boatsQuery = boatsQuery.eq("school_id", activeSchoolId);
     }
+    // Own boats plus boats other schools have shared with this school.
+    const boatScope = await getUsableBoatsFilter(supabase, activeSchoolId);
+    if (boatScope) boatsQuery = boatsQuery.or(boatScope);
 
     const [
         { data: courses },

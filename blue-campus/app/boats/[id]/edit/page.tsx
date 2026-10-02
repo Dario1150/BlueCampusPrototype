@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import InputForm from "@/app/boats/components/InputForm";
@@ -18,6 +19,8 @@ export default async function EditBoatsPage({
         .single()
 
     if (profile?.role !== "admin") {
+        // A boat shared by another school is visible here, but only its owner may edit it.
+        if (boat && boat.school_id !== profile?.school_id) redirect("/boats")
         return <InputForm boat={boat} />
     }
 

@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getUsableBoatsFilter } from "@/lib/boats";
 import PageHeader from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -189,12 +190,14 @@ async function getDashboardData(activeSchoolId: number | null) {
 
   if (activeSchoolId) {
     registrationsQuery = registrationsQuery.eq("school_id", activeSchoolId);
-    boatsQuery = boatsQuery.eq("school_id", activeSchoolId);
     instructorsQuery = instructorsQuery.eq("school_id", activeSchoolId);
     openLessonsQuery = openLessonsQuery.eq("school_id", activeSchoolId);
     transactionsQuery = transactionsQuery.eq("school_id", activeSchoolId);
     upcomingLessonsQuery = upcomingLessonsQuery.eq("school_id", activeSchoolId);
   }
+  // Own boats plus boats other schools have shared with this school.
+  const boatScope = await getUsableBoatsFilter(supabase, activeSchoolId);
+  if (boatScope) boatsQuery = boatsQuery.or(boatScope);
 
   const [
     { data: registrations },
