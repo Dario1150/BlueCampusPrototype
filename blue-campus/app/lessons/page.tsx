@@ -82,19 +82,56 @@ async function getOptions(activeSchoolId: number | null) {
   };
 }
 
+type BusyRow = {
+  busy_lesson_id: number
+  busy_date: string
+  busy_start: string
+  busy_end: string
+  busy_boat_id: number
+  busy_boat_name: string
+  busy_school_name: string | null
+}
+
+/**
+ * Other schools' bookings of boats this school owns or shares — only the
+ * time, boat and school name, never the lesson itself.
+ */
+async function getBusySlots(activeSchoolId: number | null) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("other_school_boat_bookings", {
+    p_school_id: activeSchoolId,
+  });
+
+  if (error) {
+    // Function not installed yet (or similar) — the board still works without it.
+    console.error(error);
+    return [];
+  }
+
+  return ((data ?? []) as BusyRow[]).map((row) => ({
+    id: row.busy_lesson_id,
+    date: row.busy_date,
+    start_time: row.busy_start,
+    end_time: row.busy_end,
+    boat_name: row.busy_boat_name,
+    school_name: row.busy_school_name,
+  }));
+}
+
 export default async function LessonPage() {
   const profile = await getCurrentProfile();
   const activeSchoolId = profile?.activeSchoolId ?? null;
-  const [lessons, options] = await Promise.all([
+  const [lessons, options, busySlots] = await Promise.all([
     getLessons(activeSchoolId),
     getOptions(activeSchoolId),
+    getBusySlots(activeSchoolId),
   ]);
   const canWrite =
     profile?.role === "admin" || profile?.role === "school" || profile?.role === "instructor";
 
   return (
     <div className="container mx-auto py-10">
-      <LessonsBoard lessons={lessons} options={options} canWrite={canWrite} />
+      <LessonsBoard lessons={lessons} options={options} canWrite={canWrite} busySlots={busySlots} />
     </div>
   );
 }

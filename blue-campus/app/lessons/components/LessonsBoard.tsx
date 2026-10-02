@@ -52,10 +52,22 @@ type Options = {
     skillTracking: SkillTracking[]
 }
 
+// A booking by another school on a boat shared with this one: just when,
+// which boat, and who — never the lesson's details.
+type BusySlot = {
+    id: number
+    date: string
+    start_time: string
+    end_time: string
+    boat_name: string
+    school_name: string | null
+}
+
 type Props = {
     lessons: Lesson[]
     options: Options
     canWrite: boolean
+    busySlots?: BusySlot[]
 }
 
 const COLUMN_WIDTH = 336 // card column width incl. gap
@@ -100,7 +112,7 @@ function weekdayLabel(date: string): string {
 
 type Action = { lessonId: number; type: "edit" | "track" | "book" }
 
-export default function LessonsBoard({ lessons, options, canWrite }: Props) {
+export default function LessonsBoard({ lessons, options, canWrite, busySlots = [] }: Props) {
     const [action, setAction] = useState<Action | null>(null)
     const [courseFilter, setCourseFilter] = useState<string>("all")
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -114,12 +126,25 @@ export default function LessonsBoard({ lessons, options, canWrite }: Props) {
     }
 
     const dates = useMemo(() => {
-        if (lessons.length === 0) return []
-        const allDates = lessons.map((lesson) => lesson.date)
+        const allDates = [...lessons.map((lesson) => lesson.date), ...busySlots.map((slot) => slot.date)]
+        if (allDates.length === 0) return []
         const minDate = allDates.reduce((a, b) => (a < b ? a : b))
         const maxDate = allDates.reduce((a, b) => (a > b ? a : b))
         return generateDateRange(minDate, maxDate)
-    }, [lessons])
+    }, [lessons, busySlots])
+
+    // Other schools' bookings are hidden while filtering by course, since
+    // they have no course we're allowed to show.
+    const busyByDate = useMemo(
+        () =>
+            courseFilter !== "all"
+                ? {}
+                : busySlots.reduce<Record<string, BusySlot[]>>((groups, slot) => {
+                      (groups[slot.date] ??= []).push(slot)
+                      return groups
+                  }, {}),
+        [busySlots, courseFilter]
+    )
 
     const filteredLessons = useMemo(
         () =>
@@ -208,6 +233,12 @@ export default function LessonsBoard({ lessons, options, canWrite }: Props) {
                 <p className="text-muted-foreground m-5">No lessons scheduled yet.</p>
             )}
 
+            {busySlots.length > 0 && (
+                <p className="mx-1 mb-3 text-xs text-muted-foreground">
+                    Dashed cards are bookings by other schools on boats you share — shown so you can see when a boat is taken.
+                </p>
+            )}
+
             {dates.length > 0 && (
                 <div
                     ref={scrollRef}
@@ -237,19 +268,50 @@ export default function LessonsBoard({ lessons, options, canWrite }: Props) {
                                 <h2 className="font-heading text-lg font-semibold">{formatDate(date)}</h2>
                             </div>
                             <div className="flex flex-col gap-2">
-                                {(lessonsByDate[date] ?? []).length === 0 && (
-                                    <p className="text-sm text-muted-foreground">No lessons</p>
-                                )}
-                                {(lessonsByDate[date] ?? []).map((lesson) => (
-                                    <LessonCard
-                                        key={lesson.id}
-                                        lesson={lesson}
-                                        canWrite={canWrite}
-                                        onEdit={() => setAction({ lessonId: lesson.id, type: "edit" })}
-                                        onTrack={() => setAction({ lessonId: lesson.id, type: "track" })}
-                                        onBookNext={() => setAction({ lessonId: lesson.id, type: "book" })}
-                                    />
-                                ))}
+                                {(() => {
+                                    const dayItems = [
+                                        ...(lessonsByDate[date] ?? []).map((lesson) => ({
+                                            kind: "lesson" as const,
+                                            start: lesson.start_time,
+                                            lesson,
+                                        })),
+                                        ...(busyByDate[date] ?? []).map((slot) => ({
+                                            kind: "busy" as const,
+                                            start: slot.start_time,
+                                            slot,
+                                        })),
+                                    ].sort((a, b) => a.start.localeCompare(b.start))
+
+                                    if (dayItems.length === 0) {
+                                        return <p className="text-sm text-muted-foreground">No lessons</p>
+                                    }
+
+                                    return dayItems.map((item) =>
+                                        item.kind === "lesson" ? (
+                                            <LessonCard
+                                                key={`lesson-${item.lesson.id}`}
+                                                lesson={item.lesson}
+                                                canWrite={canWrite}
+                                                onEdit={() => setAction({ lessonId: item.lesson.id, type: "edit" })}
+                                                onTrack={() => setAction({ lessonId: item.lesson.id, type: "track" })}
+                                                onBookNext={() => setAction({ lessonId: item.lesson.id, type: "book" })}
+                                            />
+                                        ) : (
+                                            <div
+                                                key={`busy-${item.slot.id}`}
+                                                className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-2 text-sm text-muted-foreground"
+                                            >
+                                                <span className="font-medium">
+                                                    {item.slot.start_time.slice(0, 5)}–{item.slot.end_time.slice(0, 5)}
+                                                </span>
+                                                <span className="flex-1 truncate">
+                                                    {item.slot.boat_name} booked
+                                                    {item.slot.school_name ? ` by ${item.slot.school_name}` : ""}
+                                                </span>
+                                            </div>
+                                        )
+                                    )
+                                })()}
                             </div>
                         </div>
                         )
